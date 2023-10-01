@@ -41,44 +41,46 @@ string text = File.ReadAllText(@"json/books.json");
 books = JsonSerializer.Deserialize<List<Book>>(text, options);
 }
     public void ProcessRequest(HttpListenerContext context) {
-        
-        int bookNum = 0;
-
-if (context.Request.QueryString.AllKeys.Contains("n")) { 
-bookNum = Int32.Parse(context.Request.QueryString["n"]); 
+        if (!context.Request.QueryString.AllKeys.Contains("cmd")) {
+// if the client doesn't specify a command, we don't know what to do
+// so we return a 400 Bad Request
+// improve the error message
+context.Response. StatusCode = (int)HttpStatusCode.BadRequest;
+return;
 }
+string cmd = context.Request.QueryString["cmd"];
 
-Book book = books [bookNum] ;
-        // grab a random book
+if (cmd.Equals("list")) {
+// list books s to e from the JSON file
+int start = Int32.Parse(context.Request.QueryString["s"]); 
+int end = Int32.Parse(context.Request.QueryString["e"]); 
+List<Book> sublist = books.GetRange(start, end - start + 1); 
 
-        // convert book.Authors, which is a list, into a string with ", <br>" in between each author
-        // string.Join() is a very useful method
-        string delimiter = ",<br> ";
-        string authors = string.Join(delimiter, book.Authors);
-
-        // build the HTML response
-        // @ means a multiline string (Java doesn't have this)
-        // $ means string interpolation (Java doesn't have this either)
-        string response = $@"
+string response = $@"
         <table border=1>
         <tr>
             <th>Title</th>
             <th>Author</th>
             <th>Short Description</th>
-            <th>Long Description</th>
+            <th>Thumbnail</th>
         </tr>
+        ";
+        foreach (Book book in sublist) {
+            string authors = String.Join(",<br> ", book.Authors);
+            response += $@"
         <tr>
             <td>{book.Title}</td>
             <td>{authors}</td>
             <td>{book.ShortDescription}</td>
-            <td>{book.LongDescription}</td>
+            <td><img src = '{book.ThumbnailUrl}'/></td>
         </tr>
         </table>
         ";
-       
+        }  
+        response += "</table>";
         // write HTTP response to the output stream
-        // all of the context.response stuff is setting the headers for the HTTP response
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
+// all of the context.response stuff is setting the headers for the HTTP response
+byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
         context.Response.ContentType = "text/html";
         context.Response.ContentLength64 = bytes.Length;
         context.Response.AddHeader("Date", DateTime.Now.ToString("r"));
@@ -86,6 +88,64 @@ Book book = books [bookNum] ;
         context.Response.StatusCode = (int)HttpStatusCode.OK;
         context.Response.OutputStream.Write(bytes, 0, bytes.Length);
         context.Response.OutputStream.Flush();
+} else if (cmd.Equals("random")) {
+// return a random book from the JSON file 
+Random rand = new Random();
+int index = rand.Next(books.Count); 
+Book book = books[index];
+string authors = String.Join(",<br> ", book.Authors);
+string response = $@"
+<table border=1> 
+<tr>
+
+<th>Title</th> 
+<th>Authors/th>
+<th>Short Description</th> 
+<th>Long Description</th>
+
+</tr> 
+<tr>
+<td>{book.Title}</td> 
+<td>{authors}</td>
+<td>{book. ShortDescription}</td>
+<td>{book.LongDescription}</td>
+</tr> 1
+</table>
+";
+// write HTTP response to the output stream
+// all of the context.response stuff is setting the headers for the HTTP response
+byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
+        context.Response.ContentType = "text/html";
+        context.Response.ContentLength64 = bytes.Length;
+        context.Response.AddHeader("Date", DateTime.Now.ToString("r"));
+        context.Response.AddHeader("Last-Modified", DateTime.Now.ToString("r"));
+        context.Response.StatusCode = (int)HttpStatusCode.OK;
+        context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+        context.Response.OutputStream.Flush();
+}
+else{
+}
+//         int bookNum = 0;
+
+// if (context.Request.QueryString.AllKeys.Contains("n")) { 
+// bookNum = Int32.Parse(context.Request.QueryString["n"]); 
+// }
+
+// Book book = books [bookNum] ;
+//         // grab a random book
+
+        // convert book.Authors, which is a list, into a string with ", <br>" in between each author
+        // string.Join() is a very useful method
+        // string delimiter = ",<br> ";
+        // string authors = string.Join(delimiter, book.Authors);
+
+        // build the HTML response
+        // @ means a multiline string (Java doesn't have this)
+        // $ means string interpolation (Java doesn't have this either)
+        
+       
+        
+        
     }
 }
 /// <summary>
@@ -315,6 +375,5 @@ class SimpleHTTPServer
         _serverThread = new Thread(this.Listen);
         _serverThread.Start();
     }
-
-
 }
+
