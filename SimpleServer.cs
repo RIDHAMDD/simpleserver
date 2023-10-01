@@ -29,19 +29,27 @@ interface IServlet {
 /// TODO: search for specific books by author or title or whatever
 /// </summary>
 class BookHandler : IServlet {
+
+    private List<Book> books; 
+public BookHandler() {
+var options = new JsonSerializerOptions
+{ 
+PropertyNameCaseInsensitive = true
+
+};
+string text = File.ReadAllText(@"json/books.json"); 
+books = JsonSerializer.Deserialize<List<Book>>(text, options);
+}
     public void ProcessRequest(HttpListenerContext context) {
-        // we want to use case-insensitive matching for the JSON properties
-        // the json files use lowercae letters, but we want to use uppercase in our C# code
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
+        
+        int bookNum = 0;
 
-        string text = File.ReadAllText(@"json/books.json");
-        var books = JsonSerializer.Deserialize<List<Book>>(text, options);
+if (context.Request.QueryString.AllKeys.Contains("n")) { 
+bookNum = Int32.Parse(context.Request.QueryString["n"]); 
+}
 
+Book book = books [bookNum] ;
         // grab a random book
-        Book book = books[4];
 
         // convert book.Authors, which is a list, into a string with ", <br>" in between each author
         // string.Join() is a very useful method
@@ -206,14 +214,23 @@ class SimpleHTTPServer
     private string _rootDirectory;
     private HttpListener _listener;
     private int _port;
+    private int _numRequests = 0;
     private bool _done = false;
-
+    private Dictionary<string, int> pathsRequested = new Dictionary<string, int>();
     public int Port
     {
         get { return _port; }
-        private set { }
+        private set {_port = value; }
     }
 
+    public int NumRequests
+    {
+        get { return _numRequests; }
+        private set { _numRequests = value;}
+    }
+    public Dictionary<string, int> PathsRequested {
+    get { return pathsRequested; }
+}
     /// <summary>
     /// Construct server with given port.
     /// </summary>
@@ -258,6 +275,7 @@ class SimpleHTTPServer
             try
             {
                 HttpListenerContext context = _listener.GetContext();
+                NumRequests+= 1;
                 Process(context);
             }
             catch (Exception ex)
@@ -276,6 +294,12 @@ class SimpleHTTPServer
     {
         string filename = context.Request.Url.AbsolutePath;
         filename = filename.Substring(1);
+
+        pathsRequested[filename] = pathsRequested.GetValueOrDefault(filename, 0) + 1;
+
+        // remove leading slash
+        filename = filename.Substring(1);
+
         Console.WriteLine($"{filename} is the path");
 
         // check if the path is mapped to a servlet
