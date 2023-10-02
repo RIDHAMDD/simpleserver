@@ -28,6 +28,87 @@ interface IServlet {
 /// as an HTML table with one row.
 /// TODO: search for specific books by author or title or whatever
 /// </summary>
+class BookFilter : IServlet {
+
+    private List<Book> books; 
+public BookFilter() {
+var options = new JsonSerializerOptions
+{ 
+PropertyNameCaseInsensitive = true
+};
+string text = File.ReadAllText(@"json/books.json"); 
+books = JsonSerializer.Deserialize<List<Book>>(text, options);
+}
+    public void ProcessRequest(HttpListenerContext context) {
+        if (!context.Request.QueryString.AllKeys.Contains("cmd")) {
+// if the client doesn't specify a command, we don't know what to do
+// so we return a 400 Bad Request
+// improve the error message
+context.Response. StatusCode = (int)HttpStatusCode.BadRequest;
+return;
+}
+string cmd = context.Request.QueryString["cmd"];
+
+if (cmd.Equals("author")) {
+// list books s to e from the JSON file
+string authorToFilter  = context.Request.QueryString["auth"]; 
+List<Book> filteredBooks = books.Where(book => 
+    book.Authors.Any(author => author.Equals(authorToFilter, StringComparison.OrdinalIgnoreCase))
+).ToList();
+GenerateResponse(context, filteredBooks);
+} 
+
+else if (cmd.Equals("title")) {
+// return a random book from the JSON file 
+string titleToFilter  = context.Request.QueryString["tit"]; 
+List<Book> filteredBooks = books.Where(book => book.Title.Equals(titleToFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+GenerateResponse(context, filteredBooks);
+}
+else{
+    //Do nothing
+}
+    }
+    private void GenerateResponse(HttpListenerContext context, List<Book> filteredBooks)
+    {
+        string response = $@"
+        <table border=1>
+        <tr>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Short Description</th>
+            <th>Thumbnail</th>
+        </tr>
+        ";
+
+        foreach (Book book in filteredBooks)
+        {
+            string authors = string.Join(",<br> ", book.Authors);
+            response += $@"
+        <tr>
+            <td>{book.Title}</td>
+            <td>{authors}</td>
+            <td>{book.ShortDescription}</td>
+            <td><img src = '{book.ThumbnailUrl}'/></td>
+        </tr>
+        ";
+        }
+
+        response += "</table>";
+
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
+        context.Response.ContentType = "text/html";
+        context.Response.ContentLength64 = bytes.Length;
+        context.Response.AddHeader("Date", DateTime.Now.ToString("r"));
+        context.Response.AddHeader("Last-Modified", DateTime.Now.ToString("r"));
+        context.Response.StatusCode = (int)HttpStatusCode.OK;
+        context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+        context.Response.OutputStream.Flush();
+        context.Response.OutputStream.Close();
+    }
+}
+/// <summary>
+/// FooHandler: Servlet that returns a simple HTML page.
+/// </summary>
 class BookHandler : IServlet {
 
     private List<Book> books; 
@@ -35,7 +116,6 @@ public BookHandler() {
 var options = new JsonSerializerOptions
 { 
 PropertyNameCaseInsensitive = true
-
 };
 string text = File.ReadAllText(@"json/books.json"); 
 books = JsonSerializer.Deserialize<List<Book>>(text, options);
@@ -55,8 +135,21 @@ if (cmd.Equals("list")) {
 int start = Int32.Parse(context.Request.QueryString["s"]); 
 int end = Int32.Parse(context.Request.QueryString["e"]); 
 List<Book> sublist = books.GetRange(start, end - start + 1); 
-
-string response = $@"
+GenerateResponse(context, sublist);
+} else if (cmd.Equals("random")) {
+// return a random book from the JSON file 
+Random rand = new Random();
+int index = rand.Next(books.Count); 
+List<Book> sublist = new List<Book>(); 
+sublist.Add(books[index]); 
+GenerateResponse(context, sublist);
+}
+else{
+}
+    }
+    private void GenerateResponse(HttpListenerContext context, List<Book> filteredBooks)
+    {
+        string response = $@"
         <table border=1>
         <tr>
             <th>Title</th>
@@ -65,8 +158,10 @@ string response = $@"
             <th>Thumbnail</th>
         </tr>
         ";
-        foreach (Book book in sublist) {
-            string authors = String.Join(",<br> ", book.Authors);
+
+        foreach (Book book in filteredBooks)
+        {
+            string authors = string.Join(",<br> ", book.Authors);
             response += $@"
         <tr>
             <td>{book.Title}</td>
@@ -74,13 +169,12 @@ string response = $@"
             <td>{book.ShortDescription}</td>
             <td><img src = '{book.ThumbnailUrl}'/></td>
         </tr>
-        </table>
         ";
-        }  
+        }
+
         response += "</table>";
-        // write HTTP response to the output stream
-// all of the context.response stuff is setting the headers for the HTTP response
-byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
+
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
         context.Response.ContentType = "text/html";
         context.Response.ContentLength64 = bytes.Length;
         context.Response.AddHeader("Date", DateTime.Now.ToString("r"));
@@ -88,69 +182,10 @@ byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
         context.Response.StatusCode = (int)HttpStatusCode.OK;
         context.Response.OutputStream.Write(bytes, 0, bytes.Length);
         context.Response.OutputStream.Flush();
-} else if (cmd.Equals("random")) {
-// return a random book from the JSON file 
-Random rand = new Random();
-int index = rand.Next(books.Count); 
-Book book = books[index];
-string authors = String.Join(",<br> ", book.Authors);
-string response = $@"
-<table border=1> 
-<tr>
-
-<th>Title</th> 
-<th>Authors/th>
-<th>Short Description</th> 
-<th>Long Description</th>
-
-</tr> 
-<tr>
-<td>{book.Title}</td> 
-<td>{authors}</td>
-<td>{book. ShortDescription}</td>
-<td>{book.LongDescription}</td>
-</tr> 1
-</table>
-";
-// write HTTP response to the output stream
-// all of the context.response stuff is setting the headers for the HTTP response
-byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
-        context.Response.ContentType = "text/html";
-        context.Response.ContentLength64 = bytes.Length;
-        context.Response.AddHeader("Date", DateTime.Now.ToString("r"));
-        context.Response.AddHeader("Last-Modified", DateTime.Now.ToString("r"));
-        context.Response.StatusCode = (int)HttpStatusCode.OK;
-        context.Response.OutputStream.Write(bytes, 0, bytes.Length);
-        context.Response.OutputStream.Flush();
-}
-else{
-}
-//         int bookNum = 0;
-
-// if (context.Request.QueryString.AllKeys.Contains("n")) { 
-// bookNum = Int32.Parse(context.Request.QueryString["n"]); 
-// }
-
-// Book book = books [bookNum] ;
-//         // grab a random book
-
-        // convert book.Authors, which is a list, into a string with ", <br>" in between each author
-        // string.Join() is a very useful method
-        // string delimiter = ",<br> ";
-        // string authors = string.Join(delimiter, book.Authors);
-
-        // build the HTML response
-        // @ means a multiline string (Java doesn't have this)
-        // $ means string interpolation (Java doesn't have this either)
-        
-       
-        
-        
+        context.Response.OutputStream.Close();
     }
-}
-/// <summary>
-/// FooHandler: Servlet that returns a simple HTML page.
-/// </summary>
+} 
+
 class FooHandler : IServlet {
 
     public void ProcessRequest(HttpListenerContext context) {
@@ -174,9 +209,9 @@ class FooHandler : IServlet {
         context.Response.OutputStream.Write(bytes, 0, bytes.Length);
 
         context.Response.OutputStream.Flush();
+        context.Response.OutputStream.Close();
     }
 }
-
 
 class SimpleHTTPServer
 {
@@ -186,6 +221,7 @@ class SimpleHTTPServer
     private static IDictionary<string, IServlet> _servlets = new Dictionary<string, IServlet>() {
         {"foo", new FooHandler()},
         {"books", new BookHandler()},
+        {"Fbooks", new BookFilter()},
     };
 
     // list of default index files
@@ -204,12 +240,19 @@ class SimpleHTTPServer
     private int _numRequests = 0;
     private bool _done = false;
     private Dictionary<string, int> pathsRequested = new Dictionary<string, int>();
+    private bool _track404Requests = false;
+    private Dictionary<string, int> _404RequestCounts = new Dictionary<string, int>();
+
     public int Port
     {
         get { return _port; }
         private set {_port = value; }
     }
-
+    public bool Track404Requests
+    {
+        get { return _track404Requests; }
+        set { _track404Requests = value; }
+    }
     public int NumRequests
     {
         get { return _numRequests; }
@@ -335,6 +378,7 @@ class SimpleHTTPServer
                 
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                 context.Response.OutputStream.Flush();
+                context.Response.OutputStream.Close();
             }
             catch (Exception ex)
             {
@@ -346,12 +390,37 @@ class SimpleHTTPServer
         {
             // This sends a 404 if the file doesn't exist or cannot be read
             // TODO: customize the 404 page
+            // context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            string notFoundPage = "<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The requested page could not be found.</p></body></html>";
+
             context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            context.Response.ContentType = "text/html";
+            context.Response.ContentLength64 = notFoundPage.Length;
+            context.Response.OutputStream.Write(Encoding.UTF8.GetBytes(notFoundPage), 0, notFoundPage.Length);
+            context.Response.OutputStream.Close();
+
+            if (_track404Requests)
+            {
+                // Update 404 request count for this URL
+                _404RequestCounts[context.Request.Url.PathAndQuery] = _404RequestCounts.GetValueOrDefault(context.Request.Url.PathAndQuery, 0) + 1;
+                Console.WriteLine($"404 Request for: {context.Request.Url.PathAndQuery}");
+            }
         }
-        
+
         context.Response.OutputStream.Close();
     }
 
+    public void Print404RequestCounts()
+    {
+        if (_track404Requests)
+        {
+            Console.WriteLine("404 Request Counts:");
+            foreach (var key in _404RequestCounts)
+            {
+                Console.WriteLine($"{key.Key}: {key.Value} times");
+            }
+        }
+    }
     /// <summary>
     /// Initializes the server by setting up a listener thread on the given port
     /// </summary>

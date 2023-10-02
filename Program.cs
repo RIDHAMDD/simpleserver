@@ -29,17 +29,18 @@ static void TestJSON2() {
 
 static void TestServer() {
 SimpleHTTPServer server = new SimpleHTTPServer("files", 8080, "config.json"); 
+server.Track404Requests = true;
 string helpMessage = @"You can use the following commands:
         help - display this help message 
         stop - stop the server
         numreqs - display the number of requests
         paths - display the number of times each path was requested 
+        print404 - to print 404 request counts: 
         ";
 Console.WriteLine($"Server Started!\n{helpMessage}");
-while (true)
-{
+while (true){
 Console.Write("> ");
-// read line from console |
+// read line from console 
 String command = Console.ReadLine(); 
 
 if (command.Equals("stop")){
@@ -48,6 +49,9 @@ break;
 } 
 else if (command.Equals("help")){ 
 Console.WriteLine(helpMessage); 
+} 
+else if (command.Equals("print404")){ 
+server.Print404RequestCounts(); 
 } 
 else if (command.Equals("numreqs")){ 
 Console.WriteLine($"Number of requests: {server.NumRequests}"); 
