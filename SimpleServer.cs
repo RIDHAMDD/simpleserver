@@ -14,6 +14,8 @@ using System.Threading;
 using System.Diagnostics;
 using System.Web;
 using System.Text.Json;
+using System.Globalization;
+using System.Reflection.Metadata.Ecma335;
 
 
 /// <summary>
@@ -55,20 +57,27 @@ string authorToFilter  = context.Request.QueryString["auth"];
 List<Book> filteredBooks = books.Where(book => 
     book.Authors.Any(author => author.Equals(authorToFilter, StringComparison.OrdinalIgnoreCase))
 ).ToList();
-GenerateResponse(context, filteredBooks);
+FUNC.GenerateResponse(context, filteredBooks);
 } 
 
 else if (cmd.Equals("title")) {
 // return a random book from the JSON file 
 string titleToFilter  = context.Request.QueryString["tit"]; 
 List<Book> filteredBooks = books.Where(book => book.Title.Equals(titleToFilter, StringComparison.OrdinalIgnoreCase)).ToList();
-GenerateResponse(context, filteredBooks);
+FUNC.GenerateResponse(context, filteredBooks);
 }
 else{
     //Do nothing
 }
     }
-    private void GenerateResponse(HttpListenerContext context, List<Book> filteredBooks)
+}
+/// <summary>
+/// FooHandler: Servlet that returns a simple HTML page.
+/// </summary>
+/// 
+
+public static class FUNC{
+    public static void GenerateResponse(HttpListenerContext context, List<Book> filteredBooks)
     {
         string response = $@"
         <table border=1>
@@ -106,9 +115,13 @@ else{
         context.Response.OutputStream.Close();
     }
 }
-/// <summary>
-/// FooHandler: Servlet that returns a simple HTML page.
-/// </summary>
+
+// public class Func{
+//     public string context;
+//     public List<Book> books;
+
+// }
+
 class BookHandler : IServlet {
 
     private List<Book> books; 
@@ -135,54 +148,17 @@ if (cmd.Equals("list")) {
 int start = Int32.Parse(context.Request.QueryString["s"]); 
 int end = Int32.Parse(context.Request.QueryString["e"]); 
 List<Book> sublist = books.GetRange(start, end - start + 1); 
-GenerateResponse(context, sublist);
+FUNC.GenerateResponse(context, sublist);
 } else if (cmd.Equals("random")) {
 // return a random book from the JSON file 
 Random rand = new Random();
 int index = rand.Next(books.Count); 
 List<Book> sublist = new List<Book>(); 
 sublist.Add(books[index]); 
-GenerateResponse(context, sublist);
+FUNC.GenerateResponse(context, sublist);
 }
 else{
 }
-    }
-    private void GenerateResponse(HttpListenerContext context, List<Book> filteredBooks)
-    {
-        string response = $@"
-        <table border=1>
-        <tr>
-            <th>Title</th>
-            <th>Author</th>
-            <th>Short Description</th>
-            <th>Thumbnail</th>
-        </tr>
-        ";
-
-        foreach (Book book in filteredBooks)
-        {
-            string authors = string.Join(",<br> ", book.Authors);
-            response += $@"
-        <tr>
-            <td>{book.Title}</td>
-            <td>{authors}</td>
-            <td>{book.ShortDescription}</td>
-            <td><img src = '{book.ThumbnailUrl}'/></td>
-        </tr>
-        ";
-        }
-
-        response += "</table>";
-
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(response);
-        context.Response.ContentType = "text/html";
-        context.Response.ContentLength64 = bytes.Length;
-        context.Response.AddHeader("Date", DateTime.Now.ToString("r"));
-        context.Response.AddHeader("Last-Modified", DateTime.Now.ToString("r"));
-        context.Response.StatusCode = (int)HttpStatusCode.OK;
-        context.Response.OutputStream.Write(bytes, 0, bytes.Length);
-        context.Response.OutputStream.Flush();
-        context.Response.OutputStream.Close();
     }
 } 
 
@@ -238,6 +214,8 @@ class SimpleHTTPServer
     private HttpListener _listener;
     private int _port;
     private int _numRequests = 0;
+    private List<string> _pageHistory = new List<string>();
+    private List<string> _bookmarkedPages = new List<string>();
     private bool _done = false;
     private Dictionary<string, int> pathsRequested = new Dictionary<string, int>();
     private bool _track404Requests = false;
@@ -257,6 +235,15 @@ class SimpleHTTPServer
     {
         get { return _numRequests; }
         private set { _numRequests = value;}
+    }
+
+    public List<string> GetPageHistory
+    {
+        get { return _pageHistory; }
+    }
+    public List<string> GetBookmarkedPages()
+    {
+    return _bookmarkedPages;
     }
     public Dictionary<string, int> PathsRequested {
     get { return pathsRequested; }
@@ -331,6 +318,11 @@ class SimpleHTTPServer
         filename = filename.Substring(1);
 
         Console.WriteLine($"{filename} is the path");
+        _pageHistory.Add(filename);
+        
+        string lastVisitedPage = context.Request.Url.AbsolutePath;
+        _pageHistory.Add(lastVisitedPage);
+        _bookmarkedPages.Add(lastVisitedPage);
 
         // check if the path is mapped to a servlet
         if (_servlets.ContainsKey(filename))

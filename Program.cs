@@ -6,7 +6,7 @@ static void TestJSON() {
         PropertyNameCaseInsensitive = true
     };
 
-    string text = File.ReadAllText("config.json");
+    string text = File.ReadAllText("json/config.json");
     var config = JsonSerializer.Deserialize<Config>(text, options); 
     Console.WriteLine($"MineMappings: {config.MimeTypes[".html"]}");
     Console.WriteLine($"IndexFiles: {config.IndexFiles[0]}"); 
@@ -28,7 +28,7 @@ static void TestJSON2() {
 }
 
 static void TestServer() {
-SimpleHTTPServer server = new SimpleHTTPServer("files", 8080, "config.json"); 
+SimpleHTTPServer server = new SimpleHTTPServer("files", 8080, "json/config.json"); 
 server.Track404Requests = true;
 string helpMessage = @"You can use the following commands:
         help - display this help message 
@@ -36,6 +36,8 @@ string helpMessage = @"You can use the following commands:
         numreqs - display the number of requests
         paths - display the number of times each path was requested 
         print404 - to print 404 request counts: 
+        history - get history of all previously visited pages
+        Bookmark - Bookmarks last visited page
         ";
 Console.WriteLine($"Server Started!\n{helpMessage}");
 while (true){
@@ -50,11 +52,24 @@ break;
 else if (command.Equals("help")){ 
 Console.WriteLine(helpMessage); 
 } 
+else if (command.Equals("Bookmark")){ 
+List<string> bookmarkedPages = server.GetBookmarkedPages();
+foreach (string page in bookmarkedPages)
+{
+    Console.WriteLine($"Bookmarked Page: {page}");
+}
+} 
 else if (command.Equals("print404")){ 
 server.Print404RequestCounts(); 
 } 
 else if (command.Equals("numreqs")){ 
 Console.WriteLine($"Number of requests: {server.NumRequests}"); 
+}
+else if (command.Equals("history")){ 
+foreach (string page in server.GetPageHistory)
+{
+    Console.WriteLine("Visited page: " + page);
+} 
 }
 else if (command.Equals("paths"))
 {
@@ -69,4 +84,5 @@ Console.WriteLine($"Unknown command: {command}");
     }
 }
 // TestJSON();
+// TestJSON2();
 TestServer();
