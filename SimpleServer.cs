@@ -383,13 +383,27 @@ class SimpleHTTPServer
             // This sends a 404 if the file doesn't exist or cannot be read
             // TODO: customize the 404 page
             // context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-            string notFoundPage = "<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The requested page could not be found.</p></body></html>";
+            string errorPage = $@"
+        <html>
+        <head>
+            <title>{(int)HttpStatusCode.NotFound} {HttpStatusCode.NotFound}</title>
+        </head>
+        <body>
+            <h1>{(int)HttpStatusCode.NotFound} {HttpStatusCode.NotFound}</h1>
+            <p>{"The page you are looking for could not be found."}</p>
+            <p>{"See if the URL was inputed incorrectly"}</p>
+            <p>{"Contact us at website@knox.edu to report any broken links"}</p>
+        </body>
+        </html>";
+
+        byte[] errorBytes = Encoding.UTF8.GetBytes(errorPage);
 
             context.Response.StatusCode = (int)HttpStatusCode.NotFound;
             context.Response.ContentType = "text/html";
-            context.Response.ContentLength64 = notFoundPage.Length;
-            context.Response.OutputStream.Write(Encoding.UTF8.GetBytes(notFoundPage), 0, notFoundPage.Length);
-            context.Response.OutputStream.Close();
+            context.Response.ContentLength64 = errorBytes.Length;
+            context.Response.OutputStream.Write(errorBytes, 0, errorBytes.Length);
+            context.Response.Close();
+
 
             if (_track404Requests)
             {
