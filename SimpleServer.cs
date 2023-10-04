@@ -46,13 +46,14 @@ books = JsonSerializer.Deserialize<List<Book>>(text, options);
 // if the client doesn't specify a command, we don't know what to do
 // so we return a 400 Bad Request
 // improve the error message
+Console.WriteLine("Failed here");
 context.Response. StatusCode = (int)HttpStatusCode.BadRequest;
 return;
 }
 string cmd = context.Request.QueryString["cmd"];
 
 if (cmd.Equals("author")) {
-// list books s to e from the JSON file
+// list books for that particular author
 string authorToFilter  = context.Request.QueryString["auth"]; 
 List<Book> filteredBooks = books.Where(book => 
     book.Authors.Any(author => author.Equals(authorToFilter, StringComparison.OrdinalIgnoreCase))
@@ -61,7 +62,7 @@ FUNC.GenerateResponse(context, filteredBooks);
 } 
 
 else if (cmd.Equals("title")) {
-// return a random book from the JSON file 
+// return a book with particular title 
 string titleToFilter  = context.Request.QueryString["tit"]; 
 List<Book> filteredBooks = books.Where(book => book.Title.Equals(titleToFilter, StringComparison.OrdinalIgnoreCase)).ToList();
 FUNC.GenerateResponse(context, filteredBooks);
@@ -310,7 +311,7 @@ class SimpleHTTPServer
     private void Process(HttpListenerContext context)
     {
         string filename = context.Request.Url.AbsolutePath;
-        filename = filename.Substring(1);
+        // filename = filename.Substring(1);
 
         pathsRequested[filename] = pathsRequested.GetValueOrDefault(filename, 0) + 1;
 
